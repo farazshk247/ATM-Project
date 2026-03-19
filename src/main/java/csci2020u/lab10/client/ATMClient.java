@@ -207,7 +207,56 @@ public class ATMClient {
      * @see #setupBackButton() (String)
      */
     protected void createNewAccount() {
-        // TODO
+        setupBackButton();
+
+        atmGUI.setText("Enter a new username:");
+
+        final String[] attemptedUsername = {null};
+
+        ATMGUI.InputCallback passwordCallback = new ATMGUI.InputCallback() {
+            @Override
+            public void onInputRead(String password) {
+                if (password == null || password.trim().isEmpty() || password.contains(" ")) {
+                    atmGUI.setText("Invalid password");
+                    tryReadInput(this);
+                    return;
+                }
+
+                String username = attemptedUsername[0];
+
+                networkOut.println("NEW " + username + " " + password);
+
+                try {
+                    String message = networkIn.readLine();
+                    int statusCode = getStatusCode(message);
+
+                    if (statusCode == 201) {
+                        setUpButtons("Account created successfully");
+                    } else {
+                        setUpButtons("Could not create account.<br>Reason: " + getStatusMessage(message));
+                    }
+                } catch (IOException e) {
+                    setUpButtons("Error reading response from server.");
+                }
+            }
+        };
+
+        ATMGUI.InputCallback usernameCallback = new ATMGUI.InputCallback() {
+            @Override
+            public void onInputRead(String username) {
+                if (username == null || username.trim().isEmpty() || username.contains(" ")) {
+                    atmGUI.setText("Invalid username");
+                    tryReadInput(this);
+                    return;
+                }
+
+                attemptedUsername[0] = username;
+                atmGUI.setText("Enter a new password:");
+                tryReadInput(passwordCallback);
+            }
+        };
+
+        tryReadInput(usernameCallback);
     }
 
     /**
@@ -347,8 +396,77 @@ public class ATMClient {
      * @see #getStatusMessage(String)
      * @see #setupBackButton() (String)
      */
-    protected void withdrawMoney() {
-        // TODO
+     protected void withdrawMoney() {
+        networkOut.println("WITH");
+
+        String message;
+        Integer balance;
+
+        try {
+            message = networkIn.readLine();
+            int statusCode = getStatusCode(message);
+
+            if (statusCode != 100) {
+                setUpButtons("Error retrieving balance from the server.<br>Reason: " + getStatusMessage(message));
+                return;
+            }
+
+            try {
+                balance = Integer.valueOf(getStatusMessage(message));
+            } catch (NumberFormatException e) {
+                setUpButtons("Error parsing balance from server.");
+                return;
+            }
+        } catch (IOException e) {
+            setUpButtons("Error reading information from the server:<br>" + e);
+            return;
+        }
+
+        setupBackButton("WITH");
+
+        final Integer currentBalance = balance;
+        atmGUI.setText("Enter the amount you would like to withdraw<br>Account balance:<br>$" + currentBalance);
+
+        final Integer[] amount = {null};
+
+        ATMGUI.InputCallback callback = new ATMGUI.InputCallback() {
+            @Override
+            public void onInputRead(String input) {
+                try {
+                    amount[0] = Integer.valueOf(input);
+                } catch (NumberFormatException e) {
+                    atmGUI.setText("Enter a valid number");
+                }
+
+                if (amount[0] == null) {
+                    tryReadInput(this);
+                    return;
+                }
+
+                if (amount[0] < 0 || amount[0] > currentBalance) {
+                    atmGUI.setText("Enter a valid amount not greater than your balance");
+                    tryReadInput(this);
+                    return;
+                }
+
+                networkOut.println("WITH " + amount[0]);
+
+                try {
+                    String response = networkIn.readLine();
+                    int statusCode = getStatusCode(response);
+
+                    if (statusCode == 200) {
+                        setUpButtons("Account balance:<br>$" + getStatusMessage(response));
+                    } else {
+                        setUpButtons("Error withdrawing money.<br>Reason: " + getStatusMessage(response));
+                    }
+                } catch (IOException e) {
+                    setUpButtons("Error reading information from the server:<br>" + e);
+                }
+            }
+        };
+
+        tryReadInput(callback);
     }
 
     /// ------------------------- helper functions -------------------------

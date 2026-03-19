@@ -369,9 +369,45 @@ public class ATMThread extends Thread {
      * @return
      */
     protected boolean processWITH(String argument) {
-        // TODO
+        if (argument == null) {
+            if (!processVIEW("100")) {
+                return false;
+            }
+            return true;
+        }
 
-        // returning from function
+        if (argument.equalsIgnoreCase("BREAK")) {
+            this.log(WITH + " Nothing further from the user.");
+            return true;
+        }
+
+        Integer balance = balances.get(user);
+        if (balance == null) {
+            this.err("User " + user + " has no balance.");
+            out.println("500 Internal server error");
+            return false;
+        }
+
+        Integer amount;
+        try {
+            amount = Integer.valueOf(argument);
+        } catch (NumberFormatException e) {
+            this.err(WITH + " User " + user + " didn't give a number.");
+            out.println("400 Bad request");
+            return false;
+        }
+
+        if (amount > balance) {
+            this.err(WITH + " User " + user + " tried to withdraw more than their balance.");
+            out.println("400 Bad request");
+            return false;
+        }
+
+        balances.put(user, balance - amount);
+
+        this.log("Decremented balance of " + user + " by " + amount);
+        out.println("200 " + balances.get(user));
+
         return true;
     }
 
